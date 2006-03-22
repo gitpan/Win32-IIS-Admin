@@ -1,3 +1,7 @@
+2006-03-20    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm: add pod for all methods
+
 Revision history for Perl module Win32::IIS::Admin
 
 0.01 Fri Sep 23 20:11:21 2005

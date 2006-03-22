@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.4 2006/03/19 03:43:36 Daddy Exp $
+# $Id: Admin.pm,v 1.5 2006/03/21 01:35:06 Daddy Exp $
 
 =head1 NAME
 
@@ -37,11 +37,12 @@ use constant DEBUG => 0;
 use constant DEBUG_EXEC => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.4 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.5 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
-new
+Returns a new Win32::IIS::Admin object, or undef if there is any problem
+(such as, IIS is not installed on the local machine!).
 
 =cut
 
@@ -285,7 +286,25 @@ sub _config_get_value
 
 =item create_virtual_dir
 
-Description...
+Given the following named arguments, create a virtual directory on the
+default #1 server on the local machine's IIS instance.
+
+=over
+
+=item -dir_name => 'virtual'
+
+This is the virtual directory name as it will appear to your browsers.
+
+=item -path => 'C:/local/path'
+
+This is the full path the the actual location of the data files.
+
+=item -executable => 1
+
+Give this argument if your virtual directory holds executable programs.
+Default is 0 (NOT executable).
+
+=back
 
 =cut
 
@@ -357,6 +376,9 @@ sub create_virtual_dir
 
 
 =item errors
+
+Method not implemented.
+In the current version, error messages are printed to STDERR as they occur.
 
 =cut
 
