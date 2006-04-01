@@ -1,5 +1,5 @@
 
-# $Id: 02_config.t,v 1.3 2006/03/21 01:37:54 Daddy Exp $
+# $Id: 02_config.t,v 1.5 2006/04/01 23:18:47 Daddy Exp $
 
 use ExtUtils::testlib;
 use Test::More 'no_plan';
@@ -16,6 +16,11 @@ my $oICS = new IO::Capture::Stderr;
 $oICS->start;
 my $object = Win32::IIS::Admin->new ();
 $oICS->stop;
+if ($^O !~ m!win32!i)
+  {
+  diag(q'this is not Windows');
+  exit 0;
+  } # if
 my $sMsg = $oICS->read || '';
 my $iNoIIS = ($sMsg =~ m!can not find adsutil!i);
 SKIP:

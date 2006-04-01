@@ -1,5 +1,5 @@
 
-# $Id: Makefile.PL,v 1.3 2006/03/21 01:36:00 Daddy Exp $
+# $Id: Makefile.PL,v 1.4 2006/04/01 23:15:32 Daddy Exp $
 
 use inc::Module::Install;
 
@@ -13,7 +13,7 @@ build_requires('IO::Capture::Stderr');
 requires('Data::Dumper');
 requires('File::Spec');
 build_requires('Test::Simple' => 0.44);
-requires('Win32API::File');
+recommends('Win32API::File');
 
 &WriteAll;
 

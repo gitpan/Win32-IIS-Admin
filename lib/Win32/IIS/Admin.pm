@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.5 2006/03/21 01:35:06 Daddy Exp $
+# $Id: Admin.pm,v 1.8 2006/04/01 23:17:22 Daddy Exp $
 
 =head1 NAME
 
@@ -18,6 +18,8 @@ Win32::IIS::Admin - Administer Internet Information Service on Windows
 Enables you to do a few administration tasks on a IIS webserver.
 Currently only works for IIS 5 (i.e. Windows 2000 Server).
 Currently there are very few tasks it can do.
+On non-Windows systems, the module can be loaded, but
+new() always returns undef.
 
 =head1 METHODS
 
@@ -29,7 +31,6 @@ package Win32::IIS::Admin;
 
 use Data::Dumper;
 use File::Spec::Functions;
-use Win32API::File qw( :DRIVE_ );
 
 use strict;
 
@@ -37,7 +38,7 @@ use constant DEBUG => 0;
 use constant DEBUG_EXEC => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.5 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.8 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -49,6 +50,11 @@ Returns a new Win32::IIS::Admin object, or undef if there is any problem
 sub new
   {
   my ($class, %parameters) = @_;
+  if ($^O ne 'MSWin32')
+    {
+    DEBUG && print STDERR " DDD this is not windows\n";
+    return undef;
+    } # if
   # Find out where IIS is installed.
   # Find the cscript executable:
   my (@asTry, $sCscript);
@@ -68,6 +74,12 @@ sub new
     return undef;
     } # if
   # Get a list of logical drives:
+  eval q{use Win32API::File qw( :DRIVE_ )};
+  if ($@)
+    {
+    DEBUG && warn " EEE can not use Win32API::File because $@\n";
+    return undef;
+    } # if
   my @asDrive = Win32API::File::getLogicalDrives();
   DEBUG && print STDERR " DDD logical drives are: @asDrive\n";
   # See which ones are hard drives:
@@ -75,7 +87,7 @@ sub new
   foreach my $sDrive (@asDrive)
     {
     my $sType = Win32API::File::GetDriveType($sDrive);
-    push @asHD, $sDrive if ($sType eq DRIVE_FIXED);
+    push @asHD, $sDrive if ($sType eq eval'DRIVE_FIXED');
     } # foreach
   DEBUG && print STDERR " DDD hard drives are: @asHD\n";
   # Find the adsutil.vbs script:
