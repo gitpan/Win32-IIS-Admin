@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.8 2006/04/01 23:17:22 Daddy Exp $
+# $Id: Admin.pm,v 1.9 2007/05/01 00:36:20 Daddy Exp $
 
 =head1 NAME
 
@@ -38,7 +38,7 @@ use constant DEBUG => 0;
 use constant DEBUG_EXEC => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.8 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.9 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -437,3 +437,4 @@ LICENSE file included with this module.
 1;
 
 __END__
+

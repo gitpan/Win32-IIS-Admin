@@ -1,11 +1,12 @@
 
-# $Id: 01_load.t,v 1.6 2006/04/01 23:18:47 Daddy Exp $
+# $Id: 01_load.t,v 1.7 2007/05/01 00:35:56 Daddy Exp $
+
+use strict;
+use warnings;
 
 use ExtUtils::testlib;
 use Test::More 'no_plan';
 use IO::Capture::Stderr;
-use strict;
-use warnings;
 
 BEGIN
  {
@@ -16,12 +17,15 @@ my $oICS = new IO::Capture::Stderr;
 $oICS->start;
 my $object = Win32::IIS::Admin->new ();
 $oICS->stop;
+my $o = $^O;
+# diag(qq'dollarO is =$o=');
 if ($^O !~ m!win32!i)
   {
   diag(q'this is not Windows');
   exit 0;
   } # if
-my $sMsg = $oICS->read || '';
+my $sMsg = join(';', $oICS->read) || '';
+# diag(qq'sMsg is =$sMsg=');
 my $iNoIIS = ($sMsg =~ m!can not find adsutil!i);
 SKIP:
   {

@@ -1,3 +1,7 @@
+2007-04-30    <Daddy@C-3PO>
+
+	* make sure tests pass even if module load causes extra warnings
+
 2006-03-20    <Daddy@C-3PO>
 
 	* lib/Win32/IIS/Admin.pm: add pod for all methods
