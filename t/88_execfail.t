@@ -1,5 +1,5 @@
 
-# $Id: 88_execfail.t,v 1.5 2007/05/01 00:35:56 Daddy Exp $
+# $Id: 88_execfail.t,v 1.6 2007/05/15 00:35:03 Daddy Exp $
 
 use strict;
 use warnings;
@@ -32,13 +32,14 @@ SKIP:
   $oICS->start;
   print STDERR $object->_execute_script('adsutil', 'totally wrong args');
   $oICS->stop;
-  like($oICS->read, qr(Command not recognized));
+  like($oICS->read, qr(Command not recognized), 'expected error description');
   $oICS->start;
-  print STDERR $object->_execute_script('chaccess', '-a /W3SVC/1/no_such_path +read +execute');
+  print STDERR $object->_execute_script('adsutil', 'ENUM', '/W3SVC/1/QQQ_no_such_path_QQQ');
   $oICS->stop;
   my $sMsg = $oICS->read;
-  like($sMsg, qr(80005000));
-  like($sMsg, qr(Unable to open specified node));
+  like($sMsg, qr(80005000|80070003), 'expected error number');
+  like($sMsg, qr(Unable to open specified node|The path requested could not be found),
+      'expected error description');
   } # end of SKIP block
 
 __END__

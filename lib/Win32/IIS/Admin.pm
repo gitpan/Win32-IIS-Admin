@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.9 2007/05/01 00:36:20 Daddy Exp $
+# $Id: Admin.pm,v 1.17 2007/05/15 00:35:55 Daddy Exp $
 
 =head1 NAME
 
@@ -29,16 +29,20 @@ new() always returns undef.
 
 package Win32::IIS::Admin;
 
+use strict;
+
 use Data::Dumper;
 use File::Spec::Functions;
-
-use strict;
+use IO::String;
 
 use constant DEBUG => 0;
 use constant DEBUG_EXEC => 0;
+use constant DEBUG_FETCH => 0;
+use constant DEBUG_PARSE => 0;
+use constant DEBUG_SET => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.9 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.17 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -122,179 +126,227 @@ sub new
   } # new
 
 
-sub _parse_config
-  {
-  my $self = shift;
-  my $sConfig = $self->_execute_script('adsutil', 'enum_all');
-  DEBUG && printf STDERR (" DDD adsutil returned %d characters\n", length($sConfig));
-  DEBUG && print STDERR " DDD   here they are ==$sConfig==\n" if (length($sConfig) < 999);
-  use IO::String;
-  my $oIS = IO::String->new($sConfig);
-  if (0)
-    {
-    # See if we can use Config::IniFiles to read the config:
-    die unless eval "use Config::IniFiles";
-    my $oCI = Config::IniFiles->new(-file => 'SampleData/adsutil-enum_all.txt'); # \*oIS);
-    print STDERR Dumper($oCI);
-    print STDERR Dumper(\@Config::IniFiles::errors);
-    # Doesn't work.
-    } # if 0
-  # Parse it ourself:
-  my $sSection = 'root';
- LINE_OF_CONFIG:
-  while (my $sLine = <$oIS>)
-    {
-    chomp $sLine;
-    # Ignore empty lines and all-whitespace lines:
-    next LINE_OF_CONFIG unless $sLine =~ m!\S!;
-    my @asValue;
-    if ($sLine =~ m!\A\[(.+)\]\Z!)
-      {
-      $sSection = "root$1";
-      # DEBUG && print STDERR " DDD start section =$sSection=\n";
-      } # if [SECTION]
-    elsif ($sLine =~ m!\A(\S+)\s+:\s+\((\S+)\)\s*(.+)\Z!)
-      {
-      my ($sProperty, $sType, $sValue) = ($1, $2, $3);
-      if ($sType eq 'STRING')
-        {
-        # Protect backslashes, in case this value is a dir/file path:
-        $sValue =~ s!\\!/!g;
-        $sValue = eval $sValue;
-        @asValue = ($sValue);
-        } # if STRING
-      elsif ($sType eq 'INTEGER')
-        {
-        $sValue = eval $sValue;
-        @asValue = ($sValue);
-        } # if INTEGER
-      elsif ($sType eq 'EXPANDSZ')
-        {
-        # Protect backslashes, this value is a dir/file path:
-        $sValue =~ s!\\!/!g;
-        $sValue = eval $sValue;
-        $sValue =~ s!%([^%]+)%!$ENV{$1}!g;
-        @asValue = ($sValue);
-        } # if INTEGER
-      elsif ($sType eq 'BOOLEAN')
-        {
-        $sValue = ($sValue eq 'True');
-        @asValue = ($sValue);
-        }
-      elsif ($sType eq 'LIST')
-        {
-        @asValue = ();
-        if ($sValue =~ m!(\d+)\sItems!)
-          {
-          my $iCount = 0 + $1;
- ITEM_OF_LIST:
-          for (1..$iCount)
-            {
-            my $sSubline = <$oIS>;
-            if ($sSubline =~ m!\A\s+\042([^"]+)\042!) #
-              {
-              push @asValue, $1;
-              } # if
-            else
-              {
-              print STDERR " WWW list item does not look like string, in line ==$sLine==\n";
-              }
-            } # for ITEM_OF_LIST
-          } # if
-        else
-          {
-          print STDERR " WWW found LIST type but not item count at line ==$sLine==\n";
-          next LINE_OF_CONFIG;
-          }
-        } # if LIST
-      elsif ($sType eq 'MimeMapList')
-        {
-        my %hash;
-        while ($sValue =~ m!"(\S+)"!g)
-          {
-          my ($sExt, $sType) = split(',', $1);
-          $hash{$sExt} = $sType;
-          } # while
-        @asValue = (\%hash);
-        }
-      else
-        {
-        print STDERR " EEE unknown type =$sType=\n";
-        }
-      local $" = ',';
-      # DEBUG && print STDERR " DDD section=$sSection= property=$sProperty= type=$sType= value=@asValue=\n";
-      $self->_config_set_value($sSection, $sProperty, $sType, @asValue);
-      } # if PropertyName : (TYPE) value
-    else
-      {
-      DEBUG && print STDERR " WWW unparsable line ==$sLine==\n";
-      }
-    } # while LINE_OF_CONFIG
-  # print STDERR Dumper(keys %{$self->{config}->{root}->{W3SVC}->{2}});
-  # print STDERR Dumper($self->{config}->{root}->{W3SVC}->{1});
-  # print STDERR Dumper($self->{config}->{root}->{MimeMap});
-  # exit 88;
-  } # _parse_config
-
-# FOR INTERNAL USE ONLY.  THIS FUNCTION DOES _NOT_ CHANGE THE
-# CONFIGURATION OF IIS, ONLY OUR INTERNAL DATA STRUCTURES!
+# Not published.
 
 sub _config_set_value
   {
   my $self = shift;
   local $" = ',';
-  # DEBUG && print STDERR " DDD _config_set_value(@_)\n";
+  DEBUG_SET && print STDERR " DDD _config_set_value(@_)\n";
   # Required arg1 = section:
   my $sSection = shift || '';
   return unless ($sSection ne '');
   # Required arg2 = parameter name:
   my $sParameter = shift || '';
   return unless ($sParameter ne '');
-  # Optional arg3 = parameter type (default is STRING):
-  my $sType = shift || 'STRING';
   # Remaining arg(s) will be taken as the value(s) for this parameter.
   return unless @_;
-  $self->{config} ||= {};
-  my $dest = $self->{config};
-  # Convert the Section to a hierarchical list:
-  my @asSection = split('/', $sSection);
-  foreach my $s (@asSection)
+  my $sRes = $self->_execute_script('adsutil', 'SET', "$sSection/$sParameter", map { qq/"$_"/ } @_);
+  if ($sRes =~ m!ERROR TRYING TO GET THE SCHEMA!i)
     {
-    $dest->{$s} ||= {};
-    $dest = $dest->{$s};
-    } # foreach
-  if ($sType eq 'LIST')
+    # Unknown parameter name:
+    $self->_add_error($sRes);
+    return;
+    } # if
+  if ($sRes =~ m!ERROR TRYING TO GET THE OBJECT!i)
     {
-    $dest->{$sParameter} = \@_;
-    }
-  else
+    # Section does not exist:
+    $self->_add_error($sRes);
+    return;
+    } # if
+  if ($sRes =~ m!ERROR TRYING TO SET THE PROPERTY!i)
     {
-    $dest->{$sParameter} = shift;
-    }
+    # Type mismatch
+    $self->_add_error($sRes);
+    return;
+    } # if
+  # Assume success at this point:
+  return '';
   } # _config_set_value
+
+
+# Not published.
 
 sub _config_get_value
   {
   my $self = shift;
   local $" = ',';
-  # DEBUG && print STDERR " DDD _config_get_value(@_)\n";
+  DEBUG_FETCH && print STDERR " DDD _config_get_value(@_)\n";
   # Required arg1 = section:
   my $sSection = shift || '';
   return unless ($sSection ne '');
   # Required arg2 = parameter name:
   my $sParameter = shift || '';
   return unless ($sParameter ne '');
-  return unless ref($self->{config});
-  my $dest = $self->{config};
-  # Convert the Section to a hierarchical list:
-  my @asSection = split('/', $sSection);
-  foreach my $s (@asSection)
+  my $sRes = $self->_execute_script('adsutil', 'GET', "$sSection/$sParameter");
+  if ($sRes =~ m!ERROR TRYING TO GET!i)
     {
-    return unless ref($dest->{$s});
-    $dest = $dest->{$s};
-    } # foreach
-  return $dest->{$sParameter};
+    $self->_add_error($sRes);
+    return;
+    } # if
+  my $oIS = IO::String->new($sRes);
+  my $sLine = <$oIS>;
+  if ($sLine =~ m!\A(\S+)\s+:\s+\((\S+)\)\s*(.+)\Z!)
+    {
+    my ($sProperty, $sType, $sValue) = ($1, $2, $3);
+    my @asValue;
+    if ($sType eq 'STRING')
+      {
+      # Protect backslashes, in case this value is a dir/file path:
+      $sValue =~ s!\\!/!g;
+      $sValue = eval $sValue;
+      return $sValue;
+      } # if STRING
+    elsif ($sType eq 'INTEGER')
+      {
+      $sValue = eval $sValue;
+      return $sValue;
+      } # if INTEGER
+    elsif ($sType eq 'EXPANDSZ')
+      {
+      # Protect backslashes, this value is a dir/file path:
+      $sValue =~ s!\\!/!g;
+      $sValue = eval $sValue;
+      $sValue =~ s!%([^%]+)%!$ENV{$1}!g;
+      return $sValue;
+      } # if INTEGER
+    elsif ($sType eq 'BOOLEAN')
+      {
+      $sValue = ($sValue eq 'True');
+      return $sValue;
+      }
+    elsif ($sType eq 'LIST')
+      {
+      my @asValue = ();
+      if ($sValue =~ m!(\d+)\sItems!)
+        {
+        my $iCount = 0 + $1;
+      ITEM_OF_LIST:
+        for (1..$iCount)
+          {
+          my $sSubline = <$oIS>;
+          if ($sSubline =~ m!\A\s+\042([^"]+)\042!) #
+            {
+            push @asValue, $1;
+            } # if
+          else
+            {
+            print STDERR " WWW list item does not look like string, in line ==$sLine==\n";
+            }
+          } # for ITEM_OF_LIST
+        } # if
+      else
+        {
+        print STDERR " WWW found LIST type but not item count at line ==$sLine==\n";
+        next LINE_OF_CONFIG;
+        }
+      return \@asValue;
+      } # if LIST
+    elsif ($sType eq 'MimeMapList')
+      {
+      my %hash;
+      while ($sValue =~ m!"(\S+)"!g)
+        {
+        my ($sExt, $sType) = split(',', $1);
+        $hash{$sExt} = $sType;
+        } # while
+      return \%hash;
+      }
+    else
+      {
+      print STDERR " EEE unknown type =$sType=\n";
+      }
+    } # if PropertyName : (TYPE) value
+  else
+    {
+    DEBUG_PARSE && print STDERR " WWW unparsable line ==$sLine==\n";
+    }
+  return;
   } # _config_get_value
+
+
+=item iis_version
+
+Returns the version of IIS found on this machine,
+in a decimal number format like "6.0".
+
+=cut
+
+sub iis_version
+  {
+  my $self = shift;
+  if (! defined  $self->{_iss_version_})
+    {
+    my $iMajor = $self->_config_get_value('/W3SVC/Info',
+                                          'MajorIIsVersionNumber');
+    my $iMinor = $self->_config_get_value('/W3SVC/Info',
+                                          'MinorIIsVersionNumber');
+    $self->{_iss_version_} = "$iMajor.$iMinor";
+    } # if
+  return $self->{_iss_version_};
+  } # iis_version
+
+
+=item path_of_virtual_dir
+
+Given the name of a virtual directory (or 'ROOT'),
+returns the absolute full path of where the physical files are located.
+
+=cut
+
+sub path_of_virtual_dir
+  {
+  my $self = shift;
+  my $sDir = shift || '';
+  if ($sDir eq '')
+    {
+    $self->_add_error(qq(Argument <virtual dir name> is required on path_of_virtual_dir.));
+    return;
+    } # if
+  # We cravenly refuse to modify anything but the default #1 webserver:
+  my $sWebsite = 1;
+  my $sVersion = $self->iis_version;
+  if ("6.0" le $sVersion)
+    {
+    my $sSection = join('/', 'W3SVC', $sWebsite);
+    my $sRes .= $self->_execute_script('iisvdir', '/query', $sSection) || '';
+    if ($sRes =~ m!Error!)
+      {
+      $self->_add_error($sRes);
+      return;
+      } # if
+    DEBUG_FETCH && print STDERR " DDD iisvdir returned:", $sRes;
+    my $oIS = IO::String->new($sRes);
+  FIND_DIVIDER_LINE:
+    while (my $sLine = <$oIS>)
+      {
+      last if ($sLine =~ m!={22}!);
+      } # while FIND_DIVIDER_LINE
+  VIR_DIR_LINE:
+    while (my $sLine = <$oIS>)
+      {
+      chomp $sLine;
+      my ($sVirDir, $sPath) = split(/ +/, $sLine);
+      DEBUG_FETCH && print STDERR " DDD found virdir=$sVirDir==>$sPath\n";
+      # Question: do we want to match the vir-dir name
+      # case-INsensitively?
+      if ($sVirDir =~ m!\A/?$sDir\Z!)
+        {
+        return $sPath;
+        } # if
+      } # while VIR_DIR_LINE
+    return '';
+    } # if
+  # If we get here, we must be using IIS 5.0:
+  my $sSection = join('/', '', 'W3SVC', $sWebsite, 'ROOT');
+  if ($sDir !~ m!\AROOT\Z!i)
+    {
+    $sSection .= "/$sDir";
+    } # if
+  my $sPath = $self->_config_get_value($sSection, 'Path') || '';
+  return $sPath;
+  } # path_of_virtual_dir
+
 
 =item create_virtual_dir
 
@@ -327,13 +379,13 @@ sub create_virtual_dir
   $hArgs{-dir_name} ||= '';
   if ($hArgs{-dir_name} eq '')
     {
-    $self->add_error(qq(Argument -dir_name is required on create_virtual_dir.));
+    $self->_add_error(qq(Argument -dir_name is required on create_virtual_dir.));
     return;
     } # if
   $hArgs{-path} ||= '';
   if ($hArgs{-path} eq '')
     {
-    $self->add_error(qq(Argument -path is required on create_virtual_dir.));
+    $self->_add_error(qq(Argument -path is required on create_virtual_dir.));
     return;
     } # if
   $hArgs{-executable} ||= 0;
@@ -342,8 +394,7 @@ sub create_virtual_dir
   my $sWebsite = 1;
   # First, see if a virtual directory with the same name is already
   # exists:
-  my $sSection = join('/', '', 'W3SVC', $sWebsite, 'Root', $hArgs{-dir_name});
-  my $sPath = $self->_config_get_value($sSection, 'Path') || '';
+  my $sPath = $self->path_of_virtual_dir($hArgs{-dir_name});
   my $sRes = '';
   if ($sPath ne '')
     {
@@ -351,23 +402,29 @@ sub create_virtual_dir
     # sensible error message:
     if ($sPath ne $hArgs{-path})
       {
-      $self->add_error(qq(There is already a virtual directory named '$hArgs{-dir_name}', but it points to $hArgs{-path}));
+      $self->_add_error(qq(There is already a virtual directory named '$hArgs{-dir_name}', but it points to $sPath));
       return;
       } # if
-    $self->add_error(qq(There is already a virtual directory named '$hArgs{-dir_name}' pointing to $hArgs{-path}));
+    $self->_add_error(qq(There is already a virtual directory named '$hArgs{-dir_name}' pointing to $sPath));
     # Fall through and (try to) set the access rules.
     } # if
   else
     {
     # Virtual dir not there, create it:
-    $sRes .= $self->_execute_script('mkwebdir',
-                                   qq(-v "$hArgs{-dir_name}","$hArgs{-path}"),
-                                   qq(-w $sWebsite),
-                                   # qq(-c $sComputer),
-                                  ) || '';
+    my @asArgs = ('mkwebdir',
+                  qq(-v "$hArgs{-dir_name}","$hArgs{-path}"),
+                  qq(-w $sWebsite),
+                  # qq(-c $sComputer),
+                 );
+    if ('6.0' le $self->iis_version)
+      {
+      @asArgs = ('iisvdir', '/create', "W3SVC/$sWebsite",
+                 $hArgs{-dir_name}, $hArgs{-path});
+      } # if
+    $sRes .= $self->_execute_script(@asArgs) || '';
     if ($sRes =~ m!Error!)
       {
-      $self->add_error($sRes);
+      $self->_add_error($sRes);
       return;
       } # if
     } # else
@@ -375,13 +432,26 @@ sub create_virtual_dir
   # as requested:
   if ($hArgs{-executable})
     {
-    # For some reason, the argument to chaccess has no leading slash:
-    $sSection =~ s!\A/!!;
-    # Set accesses for execution:
-    $sRes .= $self->_execute_script('chaccess',
-                                    -a => $sSection,
-                                    qw( +execute +read +script ),
-                                   );
+    my $sSection = join('/', '', 'W3SVC', $sWebsite, 'Root', $hArgs{-dir_name});
+    if ('6.0' le $self->iis_version)
+      {
+      $sRes .= $self->_config_set_value($sSection, "AccessExecute", 'True');
+      # These seem to get turned on by default, but we'll make them
+      # explicit anyway:
+      $sRes .= $self->_config_set_value($sSection, "AccessScript", 'True');
+      $sRes .= $self->_config_set_value($sSection, "AccessRead", 'True');
+      }
+    else
+      {
+      # For some reason, the argument to chaccess has no leading slash
+      # (some other scripts require leading slash):
+      $sSection =~ s!\A/!!;
+      # Set accesses for execution:
+      $sRes .= $self->_execute_script('chaccess',
+                                      -a => $sSection,
+                                      qw( +execute +read +script ),
+                                     );
+      } # else
     } # if
   return $sRes;
   } # create_virtual_dir
@@ -408,10 +478,26 @@ sub _execute_script
   {
   my $self = shift;
   my $sVBS = shift;
-  my $sCmd = join(' ', $self->{cscript}, '-nologo', $self->{adsutil}, @_);
-  $sCmd =~ s!adsutil!$sVBS!;
+  # Figure out exactly which script the caller wants to execute.
+  # Cscript needs the full path:
+  my $sScriptFname;
+  if (defined $self->{$sVBS})
+    {
+    # User requested a script which we have already located.
+    $sScriptFname = $self->{$sVBS};
+    }
+  else
+    {
+    # adsutil.vbs is the only script we bother to physically locate;
+    # all other scripts are next to cscript itself:
+    $sScriptFname = $self->{cscript};
+    $sScriptFname =~ s!cscript\.exe!$sVBS.vbs!i;
+    }
+  my $sCmd = join(' ', $self->{cscript}, '-nologo', $sScriptFname, @_);
   DEBUG_EXEC && print STDERR " DDD exec ==$sCmd==\n";
-  return qx/$sCmd/;
+  my $sRes = qx/$sCmd/;
+  print STDERR " DDD   result ===$sRes===\n" if (1 < DEBUG_EXEC);
+  return $sRes;
   } # _execute_script
 
 =back

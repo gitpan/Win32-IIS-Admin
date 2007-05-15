@@ -1,3 +1,13 @@
+2007-05-14    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm (iis_version): new method
+	(create_virtual_dir): all virtual_dir methods now work in IIS 6.0
+	(_config_set_value): _set_value method now actually affects the live server!
+
+2007-05-09    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm (create_virtual_dir): fix error message
+
 2007-04-30    <Daddy@C-3PO>
 
 	* make sure tests pass even if module load causes extra warnings

@@ -1,5 +1,5 @@
 
-# $Id: Makefile.PL,v 1.4 2006/04/01 23:15:32 Daddy Exp $
+# $Id: Makefile.PL,v 1.5 2007/05/13 14:31:48 Daddy Exp $
 
 use inc::Module::Install;
 
@@ -9,10 +9,12 @@ author('Martin Thurn (mthurn@cpan.org)');
 abstract('Administer IIS webserver on Windows');
 license('perl');
 
-build_requires('IO::Capture::Stderr');
 requires('Data::Dumper');
 requires('File::Spec');
-build_requires('Test::Simple' => 0.44);
+test_requires('IO::Capture::Stderr');
+requires('IO::String');
+test_requires('Test::Simple' => 0.44);
+test_requires('Test::More');
 recommends('Win32API::File');
 
 &WriteAll;

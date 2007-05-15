@@ -1,5 +1,5 @@
 
-# $Id: 02_config.t,v 1.6 2007/05/01 00:35:56 Daddy Exp $
+# $Id: 02_config.t,v 1.9 2007/05/15 00:35:03 Daddy Exp $
 
 use strict;
 use warnings;
@@ -15,7 +15,7 @@ BEGIN
 
 my $oICS = new IO::Capture::Stderr;
 $oICS->start;
-my $object = Win32::IIS::Admin->new ();
+my $o = Win32::IIS::Admin->new ();
 $oICS->stop;
 if ($^O !~ m!win32!i)
   {
@@ -26,9 +26,11 @@ my $sMsg = join(';', $oICS->read) || '';
 my $iNoIIS = ($sMsg =~ m!can not find adsutil!i);
 SKIP:
   {
-  skip 'IIS is not installed on this machine?', 1 if $iNoIIS;
-  isa_ok($object, 'Win32::IIS::Admin');
-  $object->_parse_config;
+  skip 'IIS is not installed on this machine?', 2 if $iNoIIS;
+  isa_ok($o, 'Win32::IIS::Admin');
+  my $sVersion = $o->iis_version;
+  ok($sVersion);
+  diag(qq{reported to be IIS version $sVersion});
   } # end of SKIP block
 
 __END__
