@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.17 2007/05/15 00:35:55 Daddy Exp $
+# $Id: Admin.pm,v 1.18 2007/05/16 21:38:16 Daddy Exp $
 
 =head1 NAME
 
@@ -42,7 +42,7 @@ use constant DEBUG_PARSE => 0;
 use constant DEBUG_SET => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.17 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.18 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -305,6 +305,10 @@ sub path_of_virtual_dir
     } # if
   # We cravenly refuse to modify anything but the default #1 webserver:
   my $sWebsite = 1;
+  if ($sDir eq 'ROOT')
+    {
+    goto ROOT;
+    } # if
   my $sVersion = $self->iis_version;
   if ("6.0" le $sVersion)
     {
@@ -337,6 +341,7 @@ sub path_of_virtual_dir
       } # while VIR_DIR_LINE
     return '';
     } # if
+ ROOT:
   # If we get here, we must be using IIS 5.0:
   my $sSection = join('/', '', 'W3SVC', $sWebsite, 'ROOT');
   if ($sDir !~ m!\AROOT\Z!i)

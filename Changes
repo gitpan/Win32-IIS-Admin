@@ -1,3 +1,7 @@
+2007-05-16    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm (path_of_virtual_dir): fixed so that 'ROOT' works
+
 2007-05-14    <Daddy@C-3PO>
 
 	* lib/Win32/IIS/Admin.pm (iis_version): new method
