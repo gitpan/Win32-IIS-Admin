@@ -1,3 +1,13 @@
+2007-06-11    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm (add_extension_restriction): new method
+	(remove_extension_restriction): new method
+	(remove_extension_restriction_group): new method
+
+2007-06-09    <Daddy@C-3PO>
+
+	* lib/Win32/IIS/Admin.pm (restart_iis): new method
+
 2007-05-16    <Daddy@C-3PO>
 
 	* lib/Win32/IIS/Admin.pm (path_of_virtual_dir): fixed so that 'ROOT' works

@@ -22,4 +22,4 @@ requires:
   Data::Dumper: 0
   File::Spec: 0
   IO::String: 0
-version: 1.018
+version: 1.022

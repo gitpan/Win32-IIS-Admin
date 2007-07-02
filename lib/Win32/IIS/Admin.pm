@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.18 2007/05/16 21:38:16 Daddy Exp $
+# $Id: Admin.pm,v 1.22 2007/06/13 03:02:24 Daddy Exp $
 
 =head1 NAME
 
@@ -37,12 +37,13 @@ use IO::String;
 
 use constant DEBUG => 0;
 use constant DEBUG_EXEC => 0;
+use constant DEBUG_EXT => 0;
 use constant DEBUG_FETCH => 0;
 use constant DEBUG_PARSE => 0;
 use constant DEBUG_SET => 0;
 
 use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.18 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.22 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -460,6 +461,177 @@ sub create_virtual_dir
     } # if
   return $sRes;
   } # create_virtual_dir
+
+
+=item add_extension_restriction
+
+Given the following named arguments,
+adds an "extension restriction" to
+the default #1 server on the local machine's IIS instance.
+Only works on IIS version 6.0.
+Note: no checking is done on the arguments,
+so it is possible to add bogus/duplicate/conflicting/illegal values to your IIS configuration.
+For more information, see
+http://www.microsoft.com/technet/prodtechnol/WindowsServer2003/Library/IIS/79652e88-e713-4aa5-a88c-8e2bd6a2955e.mspx?mfr=true
+
+=over
+
+=item -allow => <0, 1>
+
+Send 0 if this is a "deny" rule; send 1 if this is an "allow" rule.
+The default is 0, deny.
+
+=item -path => <fullpath>
+
+The full path to the executable or extension.
+This argument is required.
+
+=item -groupid => <string>
+
+"A non-localizable string used to identify groups of extensions."
+Default is empty string.
+
+=item -description => <string>
+
+"A localizable description of the extension."
+Default is empty string.
+
+=back
+
+=cut
+
+sub add_extension_restriction
+  {
+  my $self = shift;
+  # print STDERR " DDD add_extension_restriction()\n";
+  if ($self->iis_version < 6.0)
+    {
+    return;
+    } # if
+  # Set defaults, and get arguments:
+  my %hArgs = (
+               -allow => 0,
+               -groupid => '',
+               -description => '',
+               @_,
+               # At present, this argument is not alterable:
+               -deletable => 1,
+              );
+  # Verify all argument values:
+  $hArgs{-allow} = 0 if ($hArgs{-allow} ne '1');
+  if (! exists $hArgs{-path})
+    {
+    $self->add_error("add_extension_restriction() called without required argument -path");
+    return;
+    } # if
+  # Construct the new Registry value:
+  my $s = join(',', @hArgs{qw( -allow -path -deletable -groupid -description )});
+  # print STDERR " DDD   s=$s=\n";
+  my $ra = $self->_config_get_value('/W3SVC', 'WebSvcExtRestrictionList');
+  # print STDERR " DDD   before, list is ", Dumper($ra);
+  push @{$ra}, $s;
+  $self->_config_set_value('/W3SVC', 'WebSvcExtRestrictionList', @{$ra});
+  } # add_extension_restriction
+
+
+=item remove_extension_restriction
+
+Given the full path of an existing "extension restriction" in
+the default #1 server on the local machine's IIS instance,
+removes that restriction.
+If more than one restriction refers to the same path,
+they will all be removed.
+Only works on IIS version 6.0.
+
+=cut
+
+sub remove_extension_restriction
+  {
+  my $self = shift;
+  # Required arg1 = path element:
+  my $sPath = shift || '';
+  DEBUG_EXT && print STDERR " DDD remove_extension_restriction($sPath)\n";
+  $self->_remove_extension_restriction_by_elem($sPath, 1);
+  } # remove_extension_restriction
+
+
+=item remove_extension_restriction_group
+
+Given the group ID of an existing "extension restriction" in
+the default #1 server on the local machine's IIS instance,
+removes all restrictions of that group.
+Only works on IIS version 6.0.
+
+=cut
+
+sub remove_extension_restriction_group
+  {
+  my $self = shift;
+  # Required arg1 = path element:
+  my $sValue = shift || '';
+  DEBUG_EXT && print STDERR " DDD remove_extension_restriction_group($sValue)\n";
+  $self->_remove_extension_restriction_by_elem($sValue, 3);
+  } # remove_extension_restriction_group
+
+
+sub _remove_extension_restriction_by_elem
+  {
+  my $self = shift;
+  # Required arg1 = path element:
+  my $sValue = shift || '';
+  # Required arg2 = element number:
+  my $iElem = shift;
+  # Verify all argument values:
+  return if ! defined($iElem);
+  return if ($iElem < 0);
+  return if (4 < $iElem);
+  if ($sValue eq '')
+    {
+    return;
+    } # if
+  if ($self->iis_version < 6.0)
+    {
+    return;
+    } # if
+  my $rasOrig = $self->_config_get_value('/W3SVC', 'WebSvcExtRestrictionList');
+  DEBUG_EXT && print STDERR " DDD   before, list is ", Dumper($rasOrig);
+  my @asNew;
+  foreach my $s (@$rasOrig)
+    {
+    my @asElem = split(',', $s);
+    if (($asElem[$iElem] || '') eq $sValue)
+      {
+      DEBUG_EXT && print STDERR " DDD   found one to remove\n";
+      }
+    else
+      {
+      push @asNew, $s;
+      }
+    } # foreach
+  DEBUG_EXT && print STDERR " DDD   after, list is ", Dumper(\@asNew);
+  $self->_config_set_value('/W3SVC', 'WebSvcExtRestrictionList', @asNew);
+  } # _remove_extension_restriction_by_elem
+
+
+=item restart_iis
+
+Restarts the IIS service on the local machine.
+Assumes that IISReset.exe is in your path.
+
+=cut
+
+sub restart_iis
+  {
+  my $self = shift;
+  # Assume that IISReset is in the path:
+  my $sProg = 'IISReset';
+  my $iRes = system(qq'$sProg /RESTART');
+  if ($iRes)
+    {
+    # print STDERR "$sProg failed: $!";  # for debugging
+    $self->add_error("$sProg failed: $!");
+    } # if
+  } # restart_iis
 
 
 =item errors

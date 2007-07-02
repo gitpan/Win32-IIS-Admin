@@ -1,5 +1,5 @@
 
-# $Id: Makefile.PL,v 1.5 2007/05/13 14:31:48 Daddy Exp $
+# $Id: Makefile.PL,v 1.6 2007/06/13 03:02:43 Daddy Exp $
 
 use inc::Module::Install;
 
@@ -18,5 +18,15 @@ test_requires('Test::More');
 recommends('Win32API::File');
 
 &WriteAll;
+
+print STDERR <<WARNING;
+
+Note: If environment variable RUN_DESTRUCTIVE_TESTS is set,
+we will run some tests that actually change a few configuration values
+in the IIS installation on the local machine.  The changes will be
+undone after the tests are complete, but if anything goes wrong during
+the test, your IIS configuration might be left in a corrupted state.
+
+WARNING
 
 __END__
