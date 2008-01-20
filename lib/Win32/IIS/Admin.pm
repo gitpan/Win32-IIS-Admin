@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.22 2007/06/13 03:02:24 Daddy Exp $
+# $Id: Admin.pm,v 1.23 2008/01/20 23:09:33 Daddy Exp $
 
 =head1 NAME
 
@@ -30,6 +30,7 @@ new() always returns undef.
 package Win32::IIS::Admin;
 
 use strict;
+use warnings;
 
 use Data::Dumper;
 use File::Spec::Functions;
@@ -42,8 +43,8 @@ use constant DEBUG_FETCH => 0;
 use constant DEBUG_PARSE => 0;
 use constant DEBUG_SET => 0;
 
-use vars qw( $VERSION );
-$VERSION = do { my @r = (q$Revision: 1.22 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+our
+$VERSION = do { my @r = (q$Revision: 1.23 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
