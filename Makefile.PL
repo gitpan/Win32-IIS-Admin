@@ -1,13 +1,9 @@
 
-# $Id: Makefile.PL,v 1.6 2007/06/13 03:02:43 Daddy Exp $
+# $Id: Makefile.PL,v 1.7 2008/11/07 00:48:27 Martin Exp $
 
 use inc::Module::Install;
 
-name('Win32-IIS-Admin');
-version_from('lib/Win32/IIS/Admin.pm');
-author('Martin Thurn (mthurn@cpan.org)');
-abstract('Administer IIS webserver on Windows');
-license('perl');
+all_from('lib/Win32/IIS/Admin.pm');
 
 requires('Data::Dumper');
 requires('File::Spec');
@@ -17,7 +13,7 @@ test_requires('Test::Simple' => 0.44);
 test_requires('Test::More');
 recommends('Win32API::File');
 
-&WriteAll;
+WriteAll();
 
 print STDERR <<WARNING;
 

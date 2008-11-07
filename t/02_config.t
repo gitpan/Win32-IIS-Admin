@@ -1,5 +1,5 @@
 
-# $Id: 02_config.t,v 1.11 2007/06/13 03:02:04 Daddy Exp $
+# $Id: 02_config.t,v 1.12 2008/11/07 00:48:36 Martin Exp $
 
 use strict;
 use warnings;
@@ -29,21 +29,31 @@ SKIP:
   {
   skip 'IIS is not installed on this machine?', 11 if $iNoIIS;
   isa_ok($o, 'Win32::IIS::Admin');
+
   my $sVersion = $o->iis_version;
   ok($sVersion);
   diag(qq{reported to be IIS version $sVersion});
+
+  my $iTO = $o->get_timeout();
+  diag("Your CGITimeout is $iTO seconds (in IIS 6.0 it is 300 by default)");
+  like($iTO, qr(\A\d+\z), 'timeout is an integer');
+
   my $s = $o->_config_get_value('/Logging', 'KeyType');
   diag("Your Logging KeyType is '$s' (it should be 'IIsLogModules' in IIS 6.0)");
+
   my $i = $o->_config_get_value('/W3SVC/AppPools', 'PingingEnabled');
   my $sNot = $i ? '' : ' not';
   diag("Pinging is$sNot enabled in your AppPools (in IIS 6.0 it is enabled by default)");
+
   $i = $o->_config_get_value('/W3SVC/AppPools', 'SMPAffinitized');
   $sNot = $i ? '' : ' not';
   diag("SMP is$sNot affinitized in your AppPools (in IIS 6.0 it is not affinitized by default)");
+
   my $raCED = $o->_config_get_value('/W3SVC/Info', 'CustomErrorDescriptions');
   isa_ok($raCED, 'ARRAY', 'CED list');
   my $iCED = $#{$raCED} + 1;
   diag("Your server has $iCED custom error messages defined (IIS 6.0 installs 47 by default)");
+
   if ($ENV{RUN_DESTRUCTIVE_TESTS})
     {
     my $sTestPath = '/W3SVC/Filters/Compression/deflate';

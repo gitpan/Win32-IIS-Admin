@@ -1,5 +1,5 @@
 
-# $Id: Admin.pm,v 1.23 2008/01/20 23:09:33 Daddy Exp $
+# $Id: Admin.pm,v 1.24 2008/11/07 00:46:29 Martin Exp $
 
 =head1 NAME
 
@@ -44,7 +44,7 @@ use constant DEBUG_PARSE => 0;
 use constant DEBUG_SET => 0;
 
 our
-$VERSION = do { my @r = (q$Revision: 1.23 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
+$VERSION = do { my @r = (q$Revision: 1.24 $ =~ /\d+/g); sprintf "%d."."%03d" x $#r, @r };
 
 =item new
 
@@ -289,10 +289,41 @@ sub iis_version
   } # iis_version
 
 
+=item get_timeout
+
+Returns the IIS timeout value.
+
+=cut
+
+sub get_timeout
+  {
+  my $self = shift;
+  $self->_config_get_value('/W3SVC', 'CGITimeout');
+  } # set_timeout
+
+
+=item set_timeout
+
+Given an integer,
+sets the IIS timeout to that value.
+Does no checking on the value passed in, so use carefully!
+
+=cut
+
+sub set_timeout
+  {
+  my $self = shift;
+  # Required arg1 = an integer:
+  my $iArg = shift() + 0;
+  $self->_config_set_value('/W3SVC', 'CGITimeout', $iArg);
+  } # set_timeout
+
+
 =item path_of_virtual_dir
 
 Given the name of a virtual directory (or 'ROOT'),
 returns the absolute full path of where the physical files are located.
+Returns undef if there is no virtual directory matching the name given.
 
 =cut
 
@@ -692,9 +723,6 @@ Martin Thurn C<mthurn@cpan.org>
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
-
-The full text of the license can be found in the
-LICENSE file included with this module.
 
 =cut
 

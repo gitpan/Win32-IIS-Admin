@@ -1,3 +1,8 @@
+2008-11-06  Kingpin  <Martin@BLUEMAX>
+
+	* lib/Win32/IIS/Admin.pm (set_timeout): new method
+	(get_timeout): new method
+
 2007-06-11    <Daddy@C-3PO>
 
 	* lib/Win32/IIS/Admin.pm (add_extension_restriction): new method
